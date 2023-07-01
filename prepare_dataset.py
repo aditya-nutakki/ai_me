@@ -1,13 +1,7 @@
 import os
 import sys
 import config as c
-
-
-def write_file(save_dir, text):
-    with open(save_dir, "w") as f:
-        for line in text:
-            f.write(line)
-
+from utils import write_file
 
 def main():
     dataset_path = os.path.dirname(c.text_file_name)
