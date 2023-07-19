@@ -34,7 +34,7 @@ def decode_tensor(tensor):
     return itos(tensor.cpu().detach().numpy().flatten().tolist())
 
 device = c.device
-model_path = "./out/ckpt_2400_18_18_216.pt"
+model_path = "./out/ckpt_2000_24_24_264.pt"
 
 model = GPT(GPTConfig())
 
@@ -49,7 +49,7 @@ model.load_state_dict(state_dict)
 model = model.to(device)
 print("Loaded model ... ")
 print()
-input_prompt = "batman should "
+input_prompt = " "
 gen = model.generate(idx = encode_prompt(input_prompt), max_new_tokens = 500)
 # print(gen, gen.shape)
 gen = decode_tensor(gen)

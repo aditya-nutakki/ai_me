@@ -55,22 +55,24 @@ class WADataValidator:
         self.batch_size = c.batch_size
         self.block_size = c.block_size
         self.texts_to_ignore = ["<Media omitted>", "This message was deleted", "You deleted this message"]
+        self.conv_duration = 45 # in mins
+        self.stats = {"avg_response_duration": 0, "avg_text_len": 0, "median_conv_duration": 0} # ideally use these metrics to decide your block_size
 
         if os.path.isfile(self.data_path) and self.mode == "train":
             self.data = load_raw_file(self.data_path, mode="readlines")
+            self.stats["avg_response_duration"], self.stats["avg_text_len"], self.stats["median_conv_duration"] = self.get_stats()
+            print(self.stats)
             self.data = self.clean_data(self.data)
             # self.data = [char for line in self.data for char in line]
-
+            
             _n = int(self.train_split * len(self.data))
             self.train_data, self.val_data = self.data[:_n], self.data[_n:]
-
 
         else:
             if self.mode == "train":
                 raise FileNotFoundError(f"Data Path at {self.data_path} not found or missing !")
-            # else:
-            #     pass
         
+
         self.vocab_path = c.vocab_path
         self.train_data, self.val_data = torch.tensor(self.encode(self.train_data), dtype=torch.long), torch.tensor(self.encode(self.val_data), dtype=torch.long)
 
@@ -124,6 +126,44 @@ class WADataValidator:
 
         return decoded
 
+    
+    def _get_timestamp_data(self, timestamp):
+        # timestamp is a string
+        try:
+            date, time = timestamp.split(",")
+            hr, min = time.split(":")
+            hr, min = int(hr), int(min)
+        except:
+            return 0, 0
+        
+        return hr, min
+
+    def get_stats(self):
+        text_lens, conv_durations = [len(self.data[0])], []
+        for i in range(1, len(self.data)):
+            prev_line = self.data[i-1]
+            curr_line = self.data[i]
+            try:
+                timestamp, message = curr_line.split("-")
+                prev_timestamp, prev_message = prev_line.split("-")
+            except:
+                # print(f"Continuing {self.data[i]}")
+                continue
+            text_lens.append(len(message))
+            curr_hr, curr_min = self._get_timestamp_data(timestamp)
+            prev_hr, prev_min = self._get_timestamp_data(prev_timestamp)
+
+            hr_diff, min_diff = curr_hr - prev_hr, curr_min - prev_min
+            if min_diff < 0:
+                min_diff = 60 - min_diff
+            if hr_diff < 0:
+                hr_diff = 24 - hr_diff
+            # print(f"{hr_diff} of hr_diff; {min_diff} of min_diff; on messages {self.data[i]} | {self.data[i-1]}")
+            conv_durations.append(60*hr_diff + min_diff)
+
+        percentile_conv_length = sorted(conv_durations)[int(0.75*len(conv_durations))] # 75th percentile of conversation lengths
+        return sum(conv_durations)/len(conv_durations), sum(text_lens)/len(text_lens), percentile_conv_length
+        
 
     def clean_data(self, data):
         clean_data = []
@@ -138,7 +178,7 @@ class WADataValidator:
             
             # next iteration, remove empty messages and make sure every text message sent is one line per author. Also make a Q and A type of thing
             clean_data.append(message)
-        write_file("./datasets/combined.txt", clean_data)
+        # write_file("./datasets/combined.txt", clean_data)
         clean_data = [char for line in clean_data for char in line]
         return clean_data
 

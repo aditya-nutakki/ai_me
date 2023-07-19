@@ -1,6 +1,6 @@
 block_size = 96
 batch_size = 8
-text_file_name = "./datasets/combined.txt" # file to train model from
+text_file_name = "./datasets/combined2.txt" # file to train model from
 vocab_path = "./datasets/vocab.txt"
 train_split = 0.9
 
@@ -18,9 +18,9 @@ master_process = True
 
 gradient_accumulation_steps = 5 * 8 # used to simulate larger batch sizes
 # model
-n_layer = 18
-n_head = 18
-n_embd = 216
+n_layer = 24
+n_head = 24
+n_embd = 264
 dropout = 0.0 # for pretraining 0 is good, for finetuning try 0.1+
 bias = False # do we use bias inside LayerNorm and Linear layers?
 # adamw optimizer
