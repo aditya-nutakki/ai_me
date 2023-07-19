@@ -1,5 +1,7 @@
 import os, json
 import config as c
+from random import randint
+import torch
 
 def write_file(save_dir, text_data):
     with open(save_dir, "w") as f:
@@ -14,11 +16,26 @@ def load_raw_file(file_path, mode = "read"):
             text_data = f.readlines()
     return text_data
 
-def stoi(text):
-    return None
 
-def itos():
-    return None
+# will break if vocab file is not generated, fix this
+vocab = load_raw_file(c.vocab_path)
+stoi_mapping = {char : i for i, char in enumerate(vocab)}
+itos_mapping = {i : char for i, char in enumerate(vocab)}
+
+def stoi(text):
+    encoded = []
+    for char in text:
+        if char in stoi_mapping:
+            encoded.append(stoi_mapping[char])
+    return encoded
+
+def itos(self, tokenized_input):
+    decoded = []
+    for t in tokenized_input:
+        if t in itos_mapping:
+            decoded.append(itos_mapping[t])
+    return "".join(decoded)
+
 
 class WADataValidator:
     # WhatsAppDataValidator
@@ -28,7 +45,11 @@ class WADataValidator:
         self.data_path = c.text_file_name
         self.mode = mode
         self.train_split= c.train_split
+        assert self.train_split < 1.0
         self.test_split = 1 - self.train_split
+        self.batch_size = c.batch_size
+        self.block_size = c.block_size
+        self.texts_to_ignore = ["<Media omitted>", "This message was deleted", "You deleted this message"]
 
         if os.path.isfile(self.data_path) and self.mode == "train":
             self.data = load_raw_file(self.data_path, mode="readlines")
@@ -46,10 +67,11 @@ class WADataValidator:
             #     pass
         
         self.vocab_path = c.vocab_path
+        self.train_data, self.val_data = torch.tensor(self.encode(self.train_data), dtype=torch.long), torch.tensor(self.encode(self.val_data), dtype=torch.long)
 
         if os.path.isfile(self.vocab_path):
             # load vocab file
-            self.vocab = load_raw_file(self.vocab_path)
+            self.vocab = vocab
             # print(self.vocab)
             self.vocab_size = len(self.vocab)
             print("loaded vocab")
@@ -62,14 +84,14 @@ class WADataValidator:
             write_file(self.vocab_path, self.vocab)
             print("wrote")
 
-        self.stoi_mapping = {char : i for i, char in enumerate(self.vocab)}
-        self.itos_mapping = {i : char for i, char in enumerate(self.vocab)}
+        # self.stoi_mapping = {char : i for i, char in enumerate(self.vocab)}
+        # self.itos_mapping = {i : char for i, char in enumerate(self.vocab)}
         
     def encode(self, string_input, as_tensor=False):
         encoded = []
         for char in string_input:
-            if char in self.stoi_mapping:
-                encoded.append(self.stoi_mapping[char])
+            if char in stoi_mapping:
+                encoded.append(stoi_mapping[char])
         return encoded
     
     def encode_series(self, list_of_texts, as_tensor=False):
@@ -82,8 +104,8 @@ class WADataValidator:
     def decode(self, tokenized_input):
         decoded = []
         for t in tokenized_input:
-            if t in self.itos_mapping:
-                decoded.append(self.itos_mapping[t])
+            if t in itos_mapping:
+                decoded.append(itos_mapping[t])
         return "".join(decoded)
         # return decoded
     
@@ -95,20 +117,17 @@ class WADataValidator:
         return decoded
 
     def clean_data(self, data):
-        
         clean_data = []
         for t, text_line in enumerate(data):
             message = text_line.split("-")[-1].lstrip()
-            
-            if "<Media omitted>" in message or "This message was deleted" in message or "You deleted this message" in message:
+            if message in self.texts_to_ignore:
                 continue
 
             for char in message:
                 if ord(char) > 127:
                     message = message.replace(char, "")
             
-            # next iteration, remove empty messages and make sure every text message sent is one line per author
-    
+            # next iteration, remove empty messages and make sure every text message sent is one line per author. Also make a Q and A type of thing
             clean_data.append(message)
         write_file("./datasets/combined_clean.txt", clean_data)
         clean_data = [char for line in clean_data for char in line]
@@ -130,7 +149,26 @@ class WADataValidator:
                 refined_chars.append(char) 
 
         return refined_chars, len(refined_chars)
-    
+
+
+    def get_batch(self, mode = "train"):
+        x, y = [], []
+        if mode == "train":
+            sample_space = self.train_data
+        elif mode == "val":
+            sample_space = self.val_data
+        else:
+            raise Exception("Input args for 'mode' must be either 'train' or 'val'")
+
+        for _ in range(self.batch_size):
+            rand_pos = randint(0, len(sample_space) - self.block_size)
+            x.append(sample_space[rand_pos: rand_pos + self.block_size])
+            y.append(sample_space[rand_pos + 1 : rand_pos + self.block_size + 1])
+        
+        # x, y = torch.stack(x), torch.stack(y)
+        return x, y
+
+
 
 if __name__ == "__main__":
     config = WADataValidator()
