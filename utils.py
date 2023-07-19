@@ -18,9 +18,14 @@ def load_raw_file(file_path, mode = "read"):
 
 
 # will break if vocab file is not generated, fix this
-vocab = load_raw_file(c.vocab_path)
-stoi_mapping = {char : i for i, char in enumerate(vocab)}
-itos_mapping = {i : char for i, char in enumerate(vocab)}
+if os.path.isfile(c.vocab_path):
+    vocab = load_raw_file(c.vocab_path)
+    stoi_mapping = {char : i for i, char in enumerate(vocab)}
+    itos_mapping = {i : char for i, char in enumerate(vocab)}
+
+else:
+    raise Exception("Prepare Dataset first since vocab doesn't exist. Run 'python utils.py'")
+
 
 def stoi(text):
     encoded = []
@@ -29,7 +34,7 @@ def stoi(text):
             encoded.append(stoi_mapping[char])
     return encoded
 
-def itos(self, tokenized_input):
+def itos(tokenized_input):
     decoded = []
     for t in tokenized_input:
         if t in itos_mapping:
@@ -87,19 +92,21 @@ class WADataValidator:
         # self.stoi_mapping = {char : i for i, char in enumerate(self.vocab)}
         # self.itos_mapping = {i : char for i, char in enumerate(self.vocab)}
         
-    def encode(self, string_input, as_tensor=False):
+    def encode(self, string_input):
         encoded = []
         for char in string_input:
             if char in stoi_mapping:
                 encoded.append(stoi_mapping[char])
         return encoded
     
-    def encode_series(self, list_of_texts, as_tensor=False):
+
+    def encode_series(self, list_of_texts):
         encoded = []
         for text in list_of_texts:
             # print(text)
             encoded.append(self.encode(text))
         return encoded
+
 
     def decode(self, tokenized_input):
         decoded = []
@@ -109,12 +116,14 @@ class WADataValidator:
         return "".join(decoded)
         # return decoded
     
+
     def decode_series(self, list_of_tokens):
         decoded = []
         for tokens in list_of_tokens:
             decoded.append(self.decode(tokens))
 
         return decoded
+
 
     def clean_data(self, data):
         clean_data = []
@@ -129,9 +138,10 @@ class WADataValidator:
             
             # next iteration, remove empty messages and make sure every text message sent is one line per author. Also make a Q and A type of thing
             clean_data.append(message)
-        write_file("./datasets/combined_clean.txt", clean_data)
+        write_file("./datasets/combined.txt", clean_data)
         clean_data = [char for line in clean_data for char in line]
         return clean_data
+
 
     def get_vocab(self, data):
         chars = []
@@ -172,6 +182,3 @@ class WADataValidator:
 
 if __name__ == "__main__":
     config = WADataValidator()
-    # print(config.encode("hi there"))
-    # print(config.decode(config.encode("hi there")))
-

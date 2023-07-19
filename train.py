@@ -100,6 +100,28 @@ while True:
         param_group['lr'] = lr
 
     # evaluate the loss on train/val sets and write checkpoints
+    print(f"iter_num => {iter_num}")
+
+
+    if iter_num % 600 == 0:
+        losses = estimate_loss()
+        print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+
+        checkpoint = {
+                    'model': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    # 'model_args': model_args,
+                    'iter_num': iter_num,
+                    'best_val_loss': best_val_loss,
+                    # 'config': config,
+                }
+        print(f"saving checkpoint to {out_dir}")
+        print()
+        torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{iter_num}_{c.n_layer}_{c.n_head}_{c.n_embd}.pt'))
+
+
+
+
     if iter_num % eval_interval == 0 and master_process:
         losses = estimate_loss()
         print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
@@ -113,10 +135,10 @@ while True:
                     # 'model_args': model_args,
                     'iter_num': iter_num,
                     'best_val_loss': best_val_loss,
-                    'config': config,
+                    # 'config': config,
                 }
                 print(f"saving checkpoint to {out_dir}")
-                torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{iter_num}.pt'))
+                torch.save(checkpoint, os.path.join(out_dir, f'ckpt_{iter_num}_{c.n_layer}_{c.n_head}_{c.n_embd}.pt'))
     if iter_num == 0 and eval_only:
         break
 
